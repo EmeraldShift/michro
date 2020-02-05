@@ -1,5 +1,5 @@
 CFILES = $(wildcard *.c)
-CFLAGS = -std=ansi -Wall -Werror -Wextra -pedantic
+CFLAGS = -std=c99 -Wall -Werror -Wextra -pedantic
 
 michro: $(CFILES)
-	gcc -o michro $(CFILES)
+	gcc -o michro $(CFILES) $(CFLAGS)
