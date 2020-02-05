@@ -10,6 +10,12 @@
 
 #define CTRL_KEY(c) ((c) & 0x1f)
 
+enum key {
+	ARROW_UP = 1000,
+	ARROW_DOWN,
+	ARROW_RIGHT,
+	ARROW_LEFT
+};
 
 typedef struct {
 	int cx, cy;
@@ -65,13 +71,36 @@ void enable_raw_mode(void)
 		die("tcsetattr");
 }
 
-char read_key(void)
+int read_key(void)
 {
 	int nread;
 	char c;
 	while ((nread = read(STDIN_FILENO, &c, 1)) != 1)
 		if (nread == -1 && errno != EAGAIN)
 			die("read");
+
+	if (c == '\x1b') {
+		char seq[3];
+		if (read(STDIN_FILENO, &seq[0], 1) != 1)
+			return '\x1b';
+		if (read(STDIN_FILENO, &seq[1], 1) != 1)
+			return '\x1b';
+
+		if (seq[0] == '[') {
+			switch(seq[1]) {
+			case 'A':
+				return ARROW_UP;
+			case 'B':
+				return ARROW_DOWN;
+			case 'C':
+				return ARROW_RIGHT;
+			case 'D':
+				return ARROW_LEFT;
+			}
+		}
+		return '\x1b';
+	}
+
 	return c;
 }
 
@@ -102,39 +131,39 @@ int get_cursor_pos(int *row, int *col)
 	return 0;
 }
 
-void process_movement(char c)
+void process_movement(int key)
 {
-	switch(c) {
-	case 'w':
+	switch(key) {
+	case ARROW_UP:
 		if (E.cy > 0)
 			E.cy--;
 		break;
-	case 'a':
-		if (E.cx > 0)
-			E.cx--;
-		break;
-	case 's':
+	case ARROW_DOWN:
 		if (E.cy < E.rows-1)
 			E.cy++;
 		break;
-	case 'd':
+	case ARROW_RIGHT:
 		if (E.cx < E.cols-1)
 			E.cx++;
+		break;
+	case ARROW_LEFT:
+		if (E.cx > 0)
+			E.cx--;
 		break;
 	}
 }
 
-void process_key(char c)
+void process_key(int key)
 {
-	switch (c) {
+	switch (key) {
 	case CTRL_KEY('q'):
 		exit(0);
 		break;
-	case 'w':
-	case 'a':
-	case 's':
-	case 'd':
-		process_movement(c);
+	case ARROW_UP:
+	case ARROW_DOWN:
+	case ARROW_RIGHT:
+	case ARROW_LEFT:
+		process_movement(key);
 		break;
 	}
 }
