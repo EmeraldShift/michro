@@ -14,7 +14,11 @@ enum key {
 	ARROW_UP = 1000,
 	ARROW_DOWN,
 	ARROW_RIGHT,
-	ARROW_LEFT
+	ARROW_LEFT,
+	HOME_KEY,
+	END_KEY,
+	PAGE_UP,
+	PAGE_DOWN
 };
 
 typedef struct {
@@ -87,6 +91,29 @@ int read_key(void)
 			return '\x1b';
 
 		if (seq[0] == '[') {
+			/* Page up/down */
+			if (seq[1] >= '0' && seq[1] <= '9') {
+				if (read(STDIN_FILENO, &seq[2], 1) != 1)
+					return '\x1b';
+				if (seq[2] == '~') {
+					switch (seq[1]) {
+					case '1':
+						return HOME_KEY;
+					case '2':
+						return END_KEY;
+					case '5':
+						return PAGE_UP;
+					case '6':
+						return PAGE_DOWN;
+					case '7':
+						return HOME_KEY;
+					case '8':
+						return END_KEY;
+					}
+				}
+			}
+
+			/* Arrow keys */
 			switch(seq[1]) {
 			case 'A':
 				return ARROW_UP;
@@ -96,11 +123,14 @@ int read_key(void)
 				return ARROW_RIGHT;
 			case 'D':
 				return ARROW_LEFT;
+			case 'H':
+				return HOME_KEY;
+			case 'F':
+				return END_KEY;
 			}
 		}
 		return '\x1b';
 	}
-
 	return c;
 }
 
@@ -150,6 +180,19 @@ void process_movement(int key)
 		if (E.cx > 0)
 			E.cx--;
 		break;
+	case HOME_KEY:
+		E.cx = 0;
+		break;
+	case END_KEY:
+		E.cx = E.cols-1;
+		break;
+	case PAGE_UP:
+	case PAGE_DOWN: {
+		int rows = E.rows;
+		while (rows--)
+			process_movement(key == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+		break;
+	}
 	}
 }
 
@@ -159,13 +202,8 @@ void process_key(int key)
 	case CTRL_KEY('q'):
 		exit(0);
 		break;
-	case ARROW_UP:
-	case ARROW_DOWN:
-	case ARROW_RIGHT:
-	case ARROW_LEFT:
-		process_movement(key);
-		break;
 	}
+	process_movement(key);
 }
 
 int get_window_size(int *h, int *w)
