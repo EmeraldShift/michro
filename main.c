@@ -15,6 +15,7 @@ enum key {
 	ARROW_DOWN,
 	ARROW_RIGHT,
 	ARROW_LEFT,
+	DEL_KEY,
 	HOME_KEY,
 	END_KEY,
 	PAGE_UP,
@@ -101,6 +102,8 @@ int read_key(void)
 						return HOME_KEY;
 					case '2':
 						return END_KEY;
+					case '3':
+						return DEL_KEY;
 					case '5':
 						return PAGE_UP;
 					case '6':
