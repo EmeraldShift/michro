@@ -1,3 +1,5 @@
+#include "abuf.h"
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
@@ -10,8 +12,8 @@
 
 
 typedef struct {
-	int rows;
-	int cols;
+	int cx, cy;
+	int rows, cols;
 	struct termios orig_termios;
 	int dead;
 } EditorState;
@@ -100,45 +102,89 @@ int get_cursor_pos(int *row, int *col)
 	return 0;
 }
 
+void process_movement(char c)
+{
+	switch(c) {
+	case 'w':
+		if (E.cy > 0)
+			E.cy--;
+		break;
+	case 'a':
+		if (E.cx > 0)
+			E.cx--;
+		break;
+	case 's':
+		if (E.cy < E.rows-1)
+			E.cy++;
+		break;
+	case 'd':
+		if (E.cx < E.cols-1)
+			E.cx++;
+		break;
+	}
+}
+
 void process_key(char c)
 {
 	switch (c) {
 	case CTRL_KEY('q'):
 		exit(0);
 		break;
+	case 'w':
+	case 'a':
+	case 's':
+	case 'd':
+		process_movement(c);
+		break;
 	}
 }
 
-int get_window_size(int *w, int *h)
+int get_window_size(int *h, int *w)
 {
 	struct winsize ws;
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
 		if (write(STDOUT_FILENO, "\x1b[999C\x1b[999B", 12) != 12)
 			return -1;
 		/* Cursor is in lower-right = win size */
-		return get_cursor_pos(w, h);
+		return get_cursor_pos(h, w);
 	}
-	*w = ws.ws_col;
 	*h = ws.ws_row;
+	*w = ws.ws_col;
 	return 0;
 }
 
-void draw_rows(void)
+void draw_rows(struct abuf *ab)
 {
-	for (int y = 0; y < E.rows-1; y++)
-		write(STDIN_FILENO, "~\r\n", 3);
-	write(STDIN_FILENO, "~", 1);
+	for (int y = 0; y < E.rows; y++) {
+		abuf_append(ab, "~", 1);
+		abuf_append(ab, "\x1b[K", 3);
+		if (y < E.rows-1)
+			abuf_append(ab, "\r\n", 2);
+	}
 }
 
 void refresh_screen(void)
 {
-	clear_screen();
-	draw_rows();
-	write(STDOUT_FILENO, "\x1b[H", 3);
+	struct abuf ab = ABUF_INIT;
+
+	abuf_append(&ab, "\x1b[?25l", 6);
+	abuf_append(&ab, "\x1b[H", 3);
+
+	draw_rows(&ab);
+
+	char buf[32];
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
+	abuf_append(&ab, buf, strlen(buf));
+
+	abuf_append(&ab, "\x1b[?25h", 6);
+
+	write(STDOUT_FILENO, ab.b, ab.len);
+	abuf_free(&ab);
 }
 
 void init_editor(void)
 {
+	E.cx = E.cy = 0;
 	if (get_window_size(&E.rows, &E.cols) == -1)
 		die("get_window_size");
 }
