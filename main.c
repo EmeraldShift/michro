@@ -30,6 +30,7 @@ typedef struct {
 	int dead;
 	struct fbuf buffer;
 	int topline;
+	int clear;
 } EditorState;
 EditorState E;
 
@@ -170,12 +171,20 @@ void process_movement(int key)
 {
 	switch(key) {
 	case ARROW_UP:
-		if (E.cy > 0)
+		if (E.cy > 0) {
 			E.cy--;
+		} else if (E.topline > 0) {
+			E.topline--;
+			E.clear = 1;
+		}
 		break;
 	case ARROW_DOWN:
-		if (E.cy < E.rows-1)
+		if (E.cy < E.rows-1) {
 			E.cy++;
+		} else if (E.topline < E.buffer.nlines - 1) {
+			E.topline++;
+			E.clear = 1;
+		}
 		break;
 	case ARROW_RIGHT:
 		if (E.cx < E.cols-1)
@@ -243,6 +252,10 @@ void draw_rows(struct abuf *ab)
 
 void refresh_screen(void)
 {
+	if (E.clear) {
+		E.clear = 0;
+		clear_screen();
+	}
 	struct abuf ab = ABUF_INIT;
 
 	abuf_append(&ab, "\x1b[?25l", 6);
