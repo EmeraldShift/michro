@@ -1,4 +1,5 @@
 #include "abuf.h"
+#include "fbuf.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -27,9 +28,10 @@ typedef struct {
 	int rows, cols;
 	struct termios orig_termios;
 	int dead;
+	struct fbuf buffer;
+	int topline;
 } EditorState;
 EditorState E;
-
 
 void clear_screen(void)
 {
@@ -226,8 +228,14 @@ int get_window_size(int *h, int *w)
 void draw_rows(struct abuf *ab)
 {
 	for (int y = 0; y < E.rows; y++) {
-		abuf_append(ab, "~", 1);
-		abuf_append(ab, "\x1b[K", 3);
+		if (y + E.topline < E.buffer.nlines) {
+			struct fbuf_line *line = fbuf_getline(&E.buffer, y + E.topline);
+			abuf_append(ab, line->s, line->len);
+		} else {
+			/* Only draw tildes after file end */
+			abuf_append(ab, "~", 1);
+			abuf_append(ab, "\x1b[K", 3);
+		}
 		if (y < E.rows-1)
 			abuf_append(ab, "\r\n", 2);
 	}
@@ -259,11 +267,20 @@ void init_editor(void)
 		die("get_window_size");
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
+	if (argc < 2) {
+		fprintf(stderr, "%s <file>\n", argv[0]);
+		return 1;
+	}
+
 	atexit(clear_screen);
 	enable_raw_mode();
+
+	fbuf_load(argv[1], &E.buffer);
+
 	init_editor();
+	clear_screen();
 	while (1) {
 		refresh_screen();
 		process_key(read_key());

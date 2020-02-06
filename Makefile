@@ -1,5 +1,7 @@
 CFILES = $(wildcard *.c)
-CFLAGS = -std=c99 -Wall -Werror -Wextra -pedantic
+CFLAGS = -g -std=c99 -Wall -Werror -Wextra -pedantic
 
-michro: $(CFILES)
+michro: $(CFILES) Makefile
 	gcc -o michro $(CFILES) $(CFLAGS)
+
+-include *.d
