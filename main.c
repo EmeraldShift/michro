@@ -30,7 +30,6 @@ typedef struct {
 	int dead;
 	struct fbuf buffer;
 	int topline;
-	int clear;
 } EditorState;
 EditorState E;
 
@@ -175,7 +174,6 @@ void process_movement(int key)
 			E.cy--;
 		} else if (E.topline > 0) {
 			E.topline--;
-			E.clear = 1;
 		}
 		break;
 	case ARROW_DOWN:
@@ -183,7 +181,6 @@ void process_movement(int key)
 			E.cy++;
 		} else if (E.topline < E.buffer.nlines - 1) {
 			E.topline++;
-			E.clear = 1;
 		}
 		break;
 	case ARROW_RIGHT:
@@ -237,13 +234,13 @@ int get_window_size(int *h, int *w)
 void draw_rows(struct abuf *ab)
 {
 	for (int y = 0; y < E.rows; y++) {
+		abuf_append(ab, "\x1b[K", 3);
 		if (y + E.topline < E.buffer.nlines) {
 			struct fbuf_line *line = fbuf_getline(&E.buffer, y + E.topline);
 			abuf_append(ab, line->s, line->len);
 		} else {
 			/* Only draw tildes after file end */
 			abuf_append(ab, "~", 1);
-			abuf_append(ab, "\x1b[K", 3);
 		}
 		if (y < E.rows-1)
 			abuf_append(ab, "\r\n", 2);
@@ -252,10 +249,6 @@ void draw_rows(struct abuf *ab)
 
 void refresh_screen(void)
 {
-	if (E.clear) {
-		E.clear = 0;
-		clear_screen();
-	}
 	struct abuf ab = ABUF_INIT;
 
 	abuf_append(&ab, "\x1b[?25l", 6);
