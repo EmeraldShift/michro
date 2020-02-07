@@ -170,18 +170,16 @@ void process_movement(int key)
 {
 	switch(key) {
 	case ARROW_UP:
-		if (E.cy > 0) {
+		if (E.cy > 0)
 			E.cy--;
-		} else if (E.topline > 0) {
+		if (E.topline > 0 && E.cy-E.topline < 2)
 			E.topline--;
-		}
 		break;
 	case ARROW_DOWN:
-		if (E.cy < E.rows-1) {
+		if (E.cy < E.buffer.nlines-1)
 			E.cy++;
-		} else if (E.topline < E.buffer.nlines - 1) {
+		if (E.topline < E.buffer.nlines-1 && (E.cy-E.topline > E.rows-3 || E.cy == E.buffer.nlines-1))
 			E.topline++;
-		}
 		break;
 	case ARROW_RIGHT:
 		if (E.cx < E.cols-1)
@@ -207,14 +205,33 @@ void process_movement(int key)
 	}
 }
 
+void process_edit(int key)
+{
+	switch (key) {
+	case CTRL_KEY('d'): {
+		int row = E.cy;
+		struct fbuf_line *line = E.buffer.lines;
+		struct fbuf_line **lptr = &E.buffer.lines;
+		while (row --> 0) {
+			lptr = &line->next;
+			line = line->next;
+		}
+		*lptr = line->next;
+		E.buffer.nlines--;
+		break;
+	}
+	}
+}
+
 void process_key(int key)
 {
 	switch (key) {
-	case CTRL_KEY('q'):
+	case CTRL_KEY('x'):
 		exit(0);
 		break;
 	}
 	process_movement(key);
+	process_edit(key);
 }
 
 int get_window_size(int *h, int *w)
@@ -235,7 +252,7 @@ void draw_rows(struct abuf *ab)
 {
 	for (int y = 0; y < E.rows; y++) {
 		abuf_append(ab, "\x1b[K", 3);
-		if (y + E.topline < E.buffer.nlines) {
+		if (y + E.topline >= 0 && y + E.topline < E.buffer.nlines) {
 			struct fbuf_line *line = fbuf_getline(&E.buffer, y + E.topline);
 			abuf_append(ab, line->s, line->len);
 		} else {
@@ -257,7 +274,7 @@ void refresh_screen(void)
 	draw_rows(&ab);
 
 	char buf[32];
-	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy + 1, E.cx + 1);
+	snprintf(buf, sizeof(buf), "\x1b[%d;%dH", E.cy - E.topline + 1, E.cx + 1);
 	abuf_append(&ab, buf, strlen(buf));
 
 	abuf_append(&ab, "\x1b[?25h", 6);
